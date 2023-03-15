@@ -1,0 +1,4 @@
+__pycache__/
+version_dump/
+img_dump/
+observer_test.py
