@@ -12,7 +12,7 @@ from cls_desktop import Desktop, DesktopState, DesktopStateIdle, DesktopStateInf
 from cls_customer import Customer, CustomerState, CustomerStateCancelled, CustomerStateCompleted, CustomerStateOrdering, CustomerStateQueueing
 from cls_window import Window, CustomerWindow, InfoWindow, WindowState, WindowStateIdle, WindowStateOpened, WindowStateShelved
 from cls_gamelevel import GameLevel_1, GameLevel_2, GameLevel_3
-from cls_chatbar import ChatBar
+from cls_chatbar import ChatBar, OverflowElement
 from cls_startbar import StartBar
 from settings import *
 
@@ -37,6 +37,7 @@ class Game:
         self.create_groups()
         self.create_layers()
         self.create_chatbar()
+        self.create_overflow_element()
         self.create_startbar()
         self.create_desktop()
 
@@ -44,6 +45,10 @@ class Game:
         self.startbar = StartBar(self)
         self.startbar_layer.add(self.startbar) 
         # as per desktop layer, may need to bring forward
+
+    def create_overflow_element(self):
+        self.overflow_element = OverflowElement(self)
+        self.overflow_layer.add(self.overflow_element) 
 
     def create_chatbar(self):
         self.chatbar = ChatBar(self)
@@ -62,15 +67,18 @@ class Game:
 
     def create_layers(self):
         self.desktop_layer = pg.sprite.LayeredUpdates() # always layer 0/1 (the back-est layer)
-        self.chatbar_layer = pg.sprite.LayeredUpdates() 
-        self.startbar_layer = pg.sprite.LayeredUpdates()
-        self.windows_layers = pg.sprite.LayeredUpdates()
+        self.chatbar_layer = pg.sprite.LayeredUpdates() # always behind windows
+        self.startbar_layer = pg.sprite.LayeredUpdates() # always behind windows
+        self.windows_layers = pg.sprite.LayeredUpdates() # always behind overflow layer
+        self.overflow_layer = pg.sprite.LayeredUpdates() # always the toppest
 
     def create_core_vars(self):
         self.current_level = 0
 
     def create_additional_vars(self):
         self.skip_remaining_customers = False
+        self.skip_remaining_windows = False
+        self.default_open_win_positions = []
 
     def setup_level(self):
         # -- set the initial level - game level basically behaves like a simple dataclass --
@@ -78,6 +86,8 @@ class Game:
             self.game_level = GameLevel_1
         # -- run core level setup --
         self.create_windows_for_level()
+        # --
+        self.create_win_open_pos_class_list()
         # -- log success --
         print(f"\n- Level Setup Completed")
         print(f"\n- Starting Game...\n")
@@ -111,24 +121,59 @@ class Game:
         # -- set caption --
         pg.display.set_caption(f"Crud Cafe v1.00 - {self.clock.get_fps():.2f}")
         # -- wipe the screen so its blank, then run desktop draw functions --
-        self.screen.fill(WHITE) 
+        self.screen.fill(WHITE)
         self.desktop.draw(self.screen)
         self.startbar.draw(self.screen)
         self.chatbar.draw(self.screen)
-        # -- users layers object to draw windows in correct order --
+        # -- draw layered sprites uing layers objects to draw things that require layering in the correct order --
         self.windows_layers.draw(self.screen)
+        self.overflow_layer.draw(self.screen) # order of operations matters rn as windows arent layered, wont once thats added tho
         # -- flip display to end --
         pg.display.flip()
 
     def update(self):
         self.desktop.update()
         self.startbar.update()
+        self.update_overflow()
+        self.overflow_layer.update()
         self.windows_layers.update()
         self.reset_update_vars()
+
+    def update_overflow(self):
+        overflowing_tally = 0
+        for a_customer in self.all_customers:
+            if a_customer.my_window.rect.x >= WIDTH - 100:
+                self.chatbar.is_shelved_overflowing = True   
+                overflowing_tally += 1
+                self.overflow_element.update_tally(overflowing_tally)
+
+    def create_win_open_pos_class_list(self):
+        """ create list of all default positions for opened windows, 
+        while creating that list when the window 'hits' (i.e. would be drawn at) 
+        the bottom it goes back to the top and moves left by half a window w to add a nice, dynamic cascading effect """
+        # -- should do this in game tbf then ensure it legitimately just runs once but this is fine for now, amkes changing to .game var obvs -- 
+        if not self.default_open_win_positions:
+            increment_i = False
+            x_increment, y_increment, y_multiplier = 0, 0, 0
+            for i in range(self.game_level.customer_for_level):
+                final_x, final_y = 50 * i, 50 * i
+                # -- if we hit the bottom the current index becomes our increment index also --
+                if final_y + 400 > HEIGHT: # WIN_OPENED_SIZE[1]
+                    if not increment_i:           
+                        increment_i = i
+                if increment_i: # dont div (well modulo but still...) but zero
+                    y_increment = i % increment_i
+                    if y_increment == 0:
+                        y_multiplier += 1
+                    y_increment = y_multiplier * (400 + 50) # window height plus 50  # WIN_OPENED_SIZE[1]
+                    x_increment = y_multiplier * int(400 / 2) # WIN_OPENED_SIZE[1]  # so they cascade on top of each other, so you can ram in waaaay more (partly for stress testing, partly as would be funny to have a insanely stressful level lol)
+                default_pos = (final_x - x_increment, final_y - y_increment)  
+                self.default_open_win_positions.append(default_pos)  
 
     def reset_update_vars(self):
         """ self referencing af but is for finally reset any necessary toggle vars """
         self.skip_remaining_customers = False
+        self.skip_remaining_windows = False
 
     def run(self):
         # -- run setup --
@@ -213,38 +258,40 @@ if __name__ == "__main__":
 
 
 
-
-# - layer considerations
-
-# - repo 
-# - do the draw stackable overflow thing basic version in desktop
-
+# done 
+# -----
+# - stackable overflow sidebar 
+# - when opening one window have the shelved reposition
+# - windows brought to front when moved from shelved to opened
+# - add click to move via titlebar only
+# - added minimise btn, no functionality tho
+# - proper interactions on titlebar, i.e. titlebar and minimise btn interactivity is entirely seperate and working when moving the windows
+# - added click to minimise button with functionality and ensured doesnt clash with titlebar click interaction (which moves the window) 
 
 
 # current
 # -------
-# - for shelved 
-#   - when changing from idle to ordering, have it start in correct shelved pos 
-# - proper shelved and opened 
-#   - add on timer afterwards
-#   - shelved stacking too 
-# - layer
-#   - remember dont use the 0th / 1st layer
-#       - and ensure set desktop to layer 0/1 
-#       - confirm this is all good using startbar and else?
-# - proper stackable sidebar 
-# - light stylise
-#   - including clickable bar only for move
-#   - minimise button, etc
-# - hover 
-# - try info window quickl
+# - proper opened windows stuff
+#   - zerothindex layer stuff now 100!
+#      - remember dont use the 0th / 1st layer
+#      - and ensure set desktop to layer 0/1 
+#       - confirm this is all good using startbar and else btw?!
+#   - click to bring to front when opened (if not click titlebar)
+#       - check existing code, consider small refactor if too many checks
+#   - sort the hover effects
+#   - light stylise if not done already
+#       - including clickable bar only for move
+#       - minimise button, etc
+# 
+# - windowText class stuff?
+#
+# - try info window quickly?
 
+# OMG PLS PLS PLS
+# - add db thing to this
+# - add aws functionality too
+# - maybe even a docker (nah but tuts tho)
 
-
-
-# id_customer_dict !!!!!
-# - && self.ordering_customers, etc, etc
-#   - if keeping use filter()
 
 # USER CUSTOMER ORDER CLASS!!!
 # - and ffs a better name pls XD

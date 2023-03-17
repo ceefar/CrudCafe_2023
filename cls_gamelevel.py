@@ -8,7 +8,7 @@ class GameLevel:
 
 class GameLevel_1(GameLevel):
     level_name = "first day on the job"
-    customer_for_level = 20
+    customer_for_level = 30
     level_total_time = 60
 
 class GameLevel_2(GameLevel):

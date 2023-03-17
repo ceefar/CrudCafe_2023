@@ -8,6 +8,11 @@
 WIDTH = 1200
 HEIGHT = 800
 
+# ---- Window Dimensions ----
+WIN_IDLE_SIZE = (0, 0)
+WIN_SHELVED_SIZE = (100, 40)
+WIN_OPENED_SIZE = (400, 400)
+
 # ---- Frequently Used Colours ----
 WIN95GREEN = (1,131,130)
 GREEN = (0, 255, 0)
