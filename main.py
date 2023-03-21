@@ -1,17 +1,55 @@
 # ---- Crud Cafe v1.00 ----
 # ---- By Courtney "Ceefar" Farquharson ----
 
+# ---- What Is This For ----
+# To showcase examples of 
+#   - code quality
+#       - this is portfolio level code 
+#   - quality of project and code structure
+#       - smart abstraction and implementation of state machine makes it exceptionally easy to extend functionality 
+#   - understanding of oop 
+#   - understanding of design principles [state machine]
+#   - intermediate python concepts 
+#   - written entirely in pygame, there is no GUI environment or tool to aid creation (unless you make it yourself!)
+
+# ---- Usage ----
+# Key
+#   - N Key : Add new customer
+#       - note : try to add as many customers as you can
+# Click
+#   - To Open 
+#       - Click shelved window
+#   - To Minimise
+#       - Click yellow button in open window
+#   - To Move
+#       - Click blue bar in open window
+#       - Click again to put down
+
+# ---- Short Explainer ----
+# Essentially a small tech demo of simple faux UI desktop interactions
+# This is an ongoing refactor of a small game I'm creating based on a CRUD data engineering project
+# Simply put customers make orders via a chat window and the player creates their order baskets in a browser window and send payment authourisation to the customer
+# The end goal is to have the save file for the game be created with an SQL query that creates db tables to store the associated customer json (which would be stored in JSON)
+
+# ---- Note ----
+# As per commented imports
+# this is significantly more completed than this current version though 
+# and slowly porting the code over to be of a higher code quality 
+# as such a *lot* of functionality that i have already coded 
+# but hasnt yet been implemented in this version that may be expected  
+
+
 # ---- Imports ----
 import pygame as pg
 import sys
 from os import path
 
 # ---- internal Imports ----
-from cls_state_machine import StateMachine
-from cls_desktop import Desktop, DesktopState, DesktopStateIdle, DesktopStateInfo, DesktopStateOrdersMenu
-from cls_customer import Customer, CustomerState, CustomerStateCancelled, CustomerStateCompleted, CustomerStateOrdering, CustomerStateQueueing
-from cls_window import Window, CustomerWindow, InfoWindow, WindowState, WindowStateIdle, WindowStateOpened, WindowStateShelved
-from cls_gamelevel import GameLevel_1, GameLevel_2, GameLevel_3
+from cls_state_machine import StateMachine 
+from cls_desktop import Desktop # DesktopState, DesktopStateIdle, DesktopStateInfo, DesktopStateOrdersMenu
+from cls_customer import Customer # CustomerState, CustomerStateCancelled, CustomerStateCompleted, CustomerStateOrdering, CustomerStateQueueing
+from cls_window import CustomerWindow, WindowStateOpened, WindowStateShelved #  Window, InfoWindow, WindowState, WindowStateIdle
+from cls_gamelevel import GameLevel_1 # GameLevel_2, GameLevel_3
 from cls_chatbar import ChatBar, OverflowElement
 from cls_startbar import StartBar
 from settings import *
@@ -44,7 +82,6 @@ class Game:
     def create_startbar(self):
         self.startbar = StartBar(self)
         self.startbar_layer.add(self.startbar) 
-        # as per desktop layer, may need to bring forward
 
     def create_overflow_element(self):
         self.overflow_element = OverflowElement(self)
@@ -53,7 +90,6 @@ class Game:
     def create_chatbar(self):
         self.chatbar = ChatBar(self)
         self.chatbar_layer.add(self.chatbar) 
-        # as per desktop layer, may need to bring forward
 
     def create_desktop(self):
         self.desktop = Desktop(self)
@@ -86,11 +122,9 @@ class Game:
             self.game_level = GameLevel_1
         # -- run core level setup --
         self.create_windows_for_level()
-        # --
         self.create_win_open_pos_class_list()
         # -- log success --
-        print(f"\n- Level Setup Completed")
-        print(f"\n- Starting Game...\n")
+        print(f"\n- Level Setup Completed\n- Starting Game...\n")
 
     def create_windows_for_level(self):
         for i in range(self.game_level.customer_for_level):
@@ -100,13 +134,14 @@ class Game:
             self.windows_layers.add(new_window)
         
 
-    # ---- New ----
+    # ---- Lambda Filters For Fast Creation of Filtered Arrays ----
 
     def get_all_opened_window_customers(self) -> Customer|None:
         all_opened_customers = list(filter(lambda x: x if isinstance(x.my_window.state_machine.current_state, WindowStateOpened) else 0, self.all_customers))
         return all_opened_customers if all_opened_customers else None
     
     def get_all_opened_default_pos_window_customers(self) -> Customer|None:
+        """ note unlike the other lambda filters this has a conditional, as such if extending this functionality remove the lambda """
         all_opened_customers = list(filter(lambda x: x if isinstance(x.my_window.state_machine.current_state, WindowStateOpened) and x.my_window.is_at_initial_position else 0, self.all_customers))
         return all_opened_customers if all_opened_customers else None
     
@@ -161,17 +196,18 @@ class Game:
                 if final_y + 400 > HEIGHT: # WIN_OPENED_SIZE[1]
                     if not increment_i:           
                         increment_i = i
-                if increment_i: # dont div (well modulo but still...) but zero
+                if increment_i: 
                     y_increment = i % increment_i
                     if y_increment == 0:
                         y_multiplier += 1
-                    y_increment = y_multiplier * (400 + 50) # window height plus 50  # WIN_OPENED_SIZE[1]
-                    x_increment = y_multiplier * int(400 / 2) # WIN_OPENED_SIZE[1]  # so they cascade on top of each other, so you can ram in waaaay more (partly for stress testing, partly as would be funny to have a insanely stressful level lol)
+                    # -- note x and y increments handled slightly different so they cascade nicely --
+                    y_increment = y_multiplier * (400 + 50) 
+                    x_increment = y_multiplier * int(400 / 2) # will hardcode as WIN_OPENED_SIZE[1] shortly 
                 default_pos = (final_x - x_increment, final_y - y_increment)  
                 self.default_open_win_positions.append(default_pos)  
 
     def reset_update_vars(self):
-        """ self referencing af but is for finally reset any necessary toggle vars """
+        """ self referencing but is for finally reset any necessary toggle vars """
         self.skip_remaining_customers = False
         self.skip_remaining_windows = False
 
@@ -246,7 +282,7 @@ class Game:
     def load_images(self):
         imgs_folder = path.join(self.game_folder, 'imgs')
         self.win95_start_btn = pg.image.load(path.join(imgs_folder, "win95_start_btn_1.png")).convert_alpha()         
-        self.win95_start_btn = pg.transform.scale(self.win95_start_btn, (94, 40)) # 117, 50  # 94, 40  # 70.5, 30
+        self.win95_start_btn = pg.transform.scale(self.win95_start_btn, (94, 40)) 
 
 # -- create new game instance and run the game --
 if __name__ == "__main__":
@@ -256,57 +292,3 @@ if __name__ == "__main__":
     while True:
         game.run()
 
-
-
-# done 
-# -----
-# - stackable overflow sidebar 
-# - when opening one window have the shelved reposition
-# - windows brought to front when moved from shelved to opened
-# - add click to move via titlebar only
-# - added minimise btn, no functionality tho
-# - proper interactions on titlebar, i.e. titlebar and minimise btn interactivity is entirely seperate and working when moving the windows
-# - added click to minimise button with functionality and ensured doesnt clash with titlebar click interaction (which moves the window) 
-
-
-# current
-# -------
-# - proper opened windows stuff
-#   - zerothindex layer stuff now 100!
-#      - remember dont use the 0th / 1st layer
-#      - and ensure set desktop to layer 0/1 
-#       - confirm this is all good using startbar and else btw?!
-#   - click to bring to front when opened (if not click titlebar)
-#       - check existing code, consider small refactor if too many checks
-#   - sort the hover effects
-#   - light stylise if not done already
-#       - including clickable bar only for move
-#       - minimise button, etc
-# 
-# - windowText class stuff?
-#
-# - try info window quickly?
-
-# OMG PLS PLS PLS
-# - add db thing to this
-# - add aws functionality too
-# - maybe even a docker (nah but tuts tho)
-
-
-# USER CUSTOMER ORDER CLASS!!!
-# - and ffs a better name pls XD
-
-# then bg setup, then start game screen and level flow and tutorial stuff!
-#   - then likely re-refactor that (since its so early its worth it imo)
-
-# - so lets have a start screen from the start even if it does nothing
-# - lets also have user name input
-
-# - then do moving windows and stackable windows stuff from the start full clean af
-#   - note : the desktop layer is infront of everything else except the windows which can be on top
-
-# - game level 0 loads and we'll have some tutorial ting setup 
-#   - literally just one for the start
-#       - i.e. welcome to the first day on the job, take orders, good luck
-#   - then from there its literally stuff like
-#       - looks like you've got a new customer!

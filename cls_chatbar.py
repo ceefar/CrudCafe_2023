@@ -73,9 +73,3 @@ class OverflowElement(pg.sprite.Sprite):
             self.draw_info_text_to_img()
             self.create_rect()
 
-
-# Notes
-# --------
-# then obvs will handle hover and click for this seperately 
-# and will make showing the customers hidden under here (just use their pos) hella easy as will handle everything here
-#   - will in a new class tbf but as part of OverflowElement module (if wanna move this, could keep it here tho tbf)
